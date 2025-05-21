@@ -1,3 +1,4 @@
+```mermaid
 flowchart LR;
     %% ---- Nodes ----
     E["Event Source<br/>(Event Grid Topic)"]
