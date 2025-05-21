@@ -6,7 +6,7 @@ flowchart LR;
     API["External REST API"]
     RAW["ADLS Gen2<br/>Raw Zone"]
     DBX["Azure Databricks<br/>(PySpark)"]
-    DL["Delta Lake<br/>Bronze/Silver/Gold"]
+    DL["Delta Lake<br/>Bronze / Silver / Gold"]
     CONS["Downstream Consumers<br/>(Power BI, Synapse)"]
     MON["Azure Monitor<br/>+ App Insights"]
     DLQ["Service Bus<br/>Dead-Letter Queue"]
@@ -25,3 +25,4 @@ flowchart LR;
     F -.-> MON
     DBX -.-> MON
     API -.-> MON
+```
