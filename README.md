@@ -1,28 +1,104 @@
+# Event-gesteuerte API-Triggerung: Skizze
 ```mermaid
 flowchart LR
-    %% ---------- Nodes ----------
-    E["Event Source<br/>(Event Grid Topic)"]
-    F["Azure Function<br/>(Trigger &amp; Orchestration)"]
-    API["External REST API"]
+    %% ---------- Kernpfad ----------
+    E["Event-Quelle<br/>(Event Grid Topic)"]
+    F["Azure Function<br/>(Trigger & Orchestration)"]
+    API["External REST API<br/>(Circuit-Breaker)"]
     RAW["ADLS Gen2<br/>Raw Zone"]
+    LOGIC["Logic App<br/>(Trigger, Steuerung, Fehlerhandling)"]
     DBX["Azure Databricks<br/>(PySpark)"]
     DL["Delta Lake<br/>Bronze / Silver / Gold"]
     CONS["Downstream Consumers<br/>(Power BI, Synapse)"]
-    MON["Azure Monitor<br/>+ App Insights"]
-    DLQ["Service Bus<br/>Dead-Letter Queue"]
 
-    %% ---------- Edges ----------
     E -->|event| F
-    F -->|"call\n(retry, auth)"| API
+    F -->|"call (retry + back-off)"| API
     API -->|response| F
-    F -->|"write raw\n(JSON)"| RAW
-    F -.->|on failure| DLQ
-    RAW -->|"Databricks Job\n(webhook)"| DBX
+    API -.->|on failure| Fallback
+    Fallback --> F
+    F -->|"write raw (JSON)"| RAW
+    RAW -->|"blob event"| LOGIC
+    LOGIC -->|"trigger job"| DBX
     DBX -->|"clean & transform"| DL
     DL -->|"query / report"| CONS
 
-    %% ---------- Monitoring ----------
+    %% ---------- Fehler- & Retry-Pfade ----------
+    DLQ["Service Bus<br/>Dead-Letter Queue"]
+    F -.->|on failure| DLQ
+
+    EGDLQ["Event Grid DLQ"]
+    E -.->|dead-letter| EGDLQ
+    EGDLQ -.->|reprocess| F
+
+    %% ---------- Security / Governance ----------
+    KV["Key Vault +<br/>Managed Identity"]
+    F -.->|secrets| KV
+
+    %% ---------- Data Quality ----------
+    DQ["Data Quality<br/>(Great Expectations)"]
+    DBX -.-> DQ
+
+    %% ---------- Monitoring & Alerting ----------
+    MON["App Insights +<br/>Log Analytics"]
+    ALERTS["Alert Rules / Dashboards"]
+
     F -.-> MON
     DBX -.-> MON
     API -.-> MON
+    MON --> ALERTS
+
+    %% ---------- CI / CD ----------
+    CI["CI/CD via GitHub Actions<br/>(IaC + Unit Tests + Staging/Prod)"]
+    CI -.-> F
+    CI -.-> DBX
+    CI -.-> DL
+
+    %% ---------- Farben / Styles ----------
+    style E fill:#cce5ff,stroke:#333,stroke-width:1px
+    style F fill:#cce5ff,stroke:#333,stroke-width:1px
+    style LOGIC fill:#cce5ff,stroke:#333,stroke-width:1px
+
+    style API fill:#f9e79f,stroke:#333,stroke-width:1px
+    style CONS fill:#f9e79f,stroke:#333,stroke-width:1px
+
+    style RAW fill:#d4efdf,stroke:#333,stroke-width:1px
+    style DL fill:#d4efdf,stroke:#333,stroke-width:1px
+
+    style DBX fill:#e8daef,stroke:#333,stroke-width:1px
+
+    style MON fill:#d1f2eb,stroke:#333,stroke-width:1px
+    style ALERTS fill:#d1f2eb,stroke:#333,stroke-width:1px
+
+    style KV fill:#fcf3cf,stroke:#333,stroke-width:1px
+
+    style DQ fill:#fadbd8,stroke:#333,stroke-width:1px
+
+    style DLQ fill:#f5b7b1,stroke:#333,stroke-width:1px
+    style EGDLQ fill:#f5b7b1,stroke:#333,stroke-width:1px
+    style Fallback fill:#f5b7b1,stroke:#333,stroke-width:1px
+
+    style CI fill:#d6eaf8,stroke:#333,stroke-width:1px
+
+    classDef eventstyle fill:#cce5ff,stroke:#333,stroke-width:1px
+    classDef externalstyle fill:#f9e79f,stroke:#333,stroke-width:1px
+    classDef storagestyle fill:#d4efdf,stroke:#333,stroke-width:1px
+    classDef processingstyle fill:#e8daef,stroke:#333,stroke-width:1px
+    classDef monitorstyle fill:#d1f2eb,stroke:#333,stroke-width:1px
+    classDef secstyle fill:#fcf3cf,stroke:#333,stroke-width:1px
+    classDef errorstyle fill:#f5b7b1,stroke:#333,stroke-width:1px
+    classDef cicdstyle fill:#d6eaf8,stroke:#333,stroke-width:1px
+    classDef dqstyle fill:#fadbd8,stroke:#333,stroke-width:1px
 ```
+### Legende Farbcodierung
+
+| Farbe        | Kategorie                   |
+|--------------|-----------------------------|
+| 🟦 Blau | Event / Steuerung           | 
+| 🟨 Gelb | Externe Systeme             |
+| 🟩 Grün | Speicherung                 |
+| 🟪 Lila | Verarbeitung                |
+| 🟦 Türkis | Monitoring & Alerting       |
+| 🟧 Beige | Security / Governance       | 
+| 🟥 Rot | Fehlerpfade / Fallback / DLQ| 
+| 🟦 Hellblau | CI / CD                     |
+| 🟥 Rosa | Data Quality                |
