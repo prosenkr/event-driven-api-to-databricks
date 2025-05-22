@@ -1,4 +1,4 @@
-# Event-gesteuerte API-Triggerung: Skizze
+# Event-gesteuerte API-Triggerung: Architektur Skizze
 ```mermaid
 flowchart LR
     %% ---------- Kernpfad ----------
