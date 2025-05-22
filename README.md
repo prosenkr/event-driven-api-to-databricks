@@ -4,17 +4,17 @@ flowchart LR
     %% ---------- Kernpfad ----------
     E["Event-Quelle<br/>(Event Grid Topic)"]
     F["Azure Function<br/>(Trigger & Orchestration)"]
-    API["External REST API<br/>(Circuit-Breaker)"]
-    RAW["ADLS Gen2<br/>Raw Zone"]
+    API(["External REST API<br/>(Circuit-Breaker)"])
+    RAW[(ADLS Gen2<br/>Raw Zone)]
     LOGIC["Logic App<br/>(Trigger, Steuerung, Fehlerhandling)"]
-    DBX["Azure Databricks<br/>(PySpark)"]
-    DL["Delta Lake<br/>Bronze / Silver / Gold"]
-    CONS["Downstream Consumers<br/>(Power BI, Synapse)"]
+    DBX(["Azure Databricks<br/>(PySpark)"])
+    DL[(Delta Lake<br/>Bronze / Silver / Gold)]
+    CONS(["Downstream Consumers<br/>(Power BI, Synapse)"])
 
     E -->|event| F
     F -->|"call (retry + back-off)"| API
     API -->|response| F
-    API -.->|on failure| Fallback
+    API -.->|on failure| Fallback((Fallback))
     Fallback --> F
     F -->|"write raw (JSON)"| RAW
     RAW -->|"blob event"| LOGIC
@@ -23,24 +23,24 @@ flowchart LR
     DL -->|"query / report"| CONS
 
     %% ---------- Fehler- & Retry-Pfade ----------
-    DLQ["Service Bus<br/>Dead-Letter Queue"]
+    DLQ((Service Bus<br/>Dead-Letter Queue))
     F -.->|on failure| DLQ
 
-    EGDLQ["Event Grid DLQ"]
+    EGDLQ((Event Grid DLQ))
     E -.->|dead-letter| EGDLQ
     EGDLQ -.->|reprocess| F
 
     %% ---------- Security / Governance ----------
-    KV["Key Vault +<br/>Managed Identity"]
+    KV(["Key Vault +<br/>Managed Identity"])
     F -.->|secrets| KV
 
     %% ---------- Data Quality ----------
-    DQ["Data Quality<br/>(Great Expectations)"]
+    DQ(["Data Quality<br/>(Great Expectations)"])
     DBX -.-> DQ
 
     %% ---------- Monitoring & Alerting ----------
-    MON["App Insights +<br/>Log Analytics"]
-    ALERTS["Alert Rules / Dashboards"]
+    MON((App Insights +<br/>Log Analytics))
+    ALERTS((Alert Rules / Dashboards))
 
     F -.-> MON
     DBX -.-> MON
@@ -48,7 +48,7 @@ flowchart LR
     MON --> ALERTS
 
     %% ---------- CI / CD ----------
-    CI["CI/CD via GitHub Actions<br/>(IaC + Unit Tests + Staging/Prod)"]
+    CI(["CI/CD via GitHub Actions<br/>(IaC + Unit Tests + Staging/Prod)"])
     CI -.-> F
     CI -.-> DBX
     CI -.-> DL
@@ -78,16 +78,6 @@ flowchart LR
     style Fallback fill:#f5b7b1,stroke:#333,stroke-width:1px
 
     style CI fill:#d6eaf8,stroke:#333,stroke-width:1px
-
-    classDef eventstyle fill:#cce5ff,stroke:#333,stroke-width:1px
-    classDef externalstyle fill:#f9e79f,stroke:#333,stroke-width:1px
-    classDef storagestyle fill:#d4efdf,stroke:#333,stroke-width:1px
-    classDef processingstyle fill:#e8daef,stroke:#333,stroke-width:1px
-    classDef monitorstyle fill:#d1f2eb,stroke:#333,stroke-width:1px
-    classDef secstyle fill:#fcf3cf,stroke:#333,stroke-width:1px
-    classDef errorstyle fill:#f5b7b1,stroke:#333,stroke-width:1px
-    classDef cicdstyle fill:#d6eaf8,stroke:#333,stroke-width:1px
-    classDef dqstyle fill:#fadbd8,stroke:#333,stroke-width:1px
 ```
 ### Legende Farbcodierung
 
@@ -102,3 +92,12 @@ flowchart LR
 | 🟥 Rot | Fehlerpfade / Fallback / DLQ| 
 | 🟦 Hellblau | CI / CD                     |
 | 🟥 Rosa | Data Quality                |
+
+### Legende Formen
+
+| Form                         | Bedeutung                           |
+|------------------------------|--------------------------------------|
+| Rechteck                  | Standardprozess / Funktion / Logik   |
+| Abgerundetes Rechteck     | Externe Systeme / Dienste            |
+| Zylinder                  | Datenspeicher / Datenhaltung         |
+| Ellipse                  | Sonderrolle: Monitoring, Fehler, DLQ |
